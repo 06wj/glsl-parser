@@ -5,9 +5,13 @@ import {
   preprocessComments,
   preprocessAst,
   PreprocessorProgram,
+  visitPreprocessedAst,
+  NodeEvaluators,
 } from './preprocessor.js';
 import generate from './generator.js';
 import { GlslSyntaxError } from '../error.js';
+import { PreprocessorAstNode } from './preprocessor-node.js';
+import { visit } from '../ast/visit.js';
 
 const fileContents = (filePath: string): string =>
   fs.readFileSync(filePath).toString();
@@ -431,12 +435,12 @@ function_call line after program`;
     //   // return identifier === 'A';
     // },
     preserve: {
-      conditional: () => false,
-      line: () => true,
-      error: () => true,
-      extension: () => true,
-      pragma: () => true,
-      version: () => true,
+      conditional: (path) => false,
+      line: (path) => true,
+      error: (path) => true,
+      extension: (path) => true,
+      pragma: (path) => true,
+      version: (path) => true,
     },
   });
   expect(generate(ast)).toBe(`
@@ -460,21 +464,150 @@ test('different line breaks character', () => {
 });
 
 test('generate #ifdef & #ifndef & #else', () => {
-  expectParsedProgram(`
-#ifdef AA
-  float a;
-#else
-  float b;
-#endif
+  const program = `
+  #ifdef AA
+    float a;
+  #else
+    float b;
+  #endif
 
-#ifndef CC
-  float c;
-#endif
+  #ifndef CC
+    float c;
+  #endif
 
-#if AA == 2
-  float d;
-#endif
-`);
+  #if AA == 2
+    float d;
+  #endif
+  `;
+
+  const ast = parse(program);
+  expect(generate(ast)).toBe(program);
+});
+
+test.only('generate #ifdef & #ifndef & #else', () => {
+  const program = `
+  #ifdef WEB
+    float web_a;
+    #define xx
+    #if xx
+      float web_xx = 1.0;
+    #endif
+    #if defined(WEB)
+      float web_b;
+    #endif
+  #else
+    float native_a;
+    #if !defined(WEB) || defined(xxx)
+      float native_b;
+    #endif
+  #endif
+
+  #if defined(WEB) && !defined(NATIVE)
+    float web_c;
+  #else
+    float native_c;
+  #endif
+
+  `;
+
+  const ast = parse(program);
+
+  // console.log(JSON.stringify(ast, null, 2))
+  
+  const macros = {
+    WEB: true,
+    NATIVE: false
+  }
+  
+  const checkMacros = (identifier: string) => {
+    const macrosEntries = Object.entries(macros);
+    for (let i = 0; i < macrosEntries.length;i ++) {
+      const [key, value] = macrosEntries[i];
+      if (key === identifier) {
+        return value;
+      }
+    }
+    return null;
+  };
+
+  const checkIFPart = (ast: PreprocessorAstNode):boolean|null => {
+    switch (ast.type) {
+      case 'unary':
+        if (ast.operator.literal === '!') {
+          const res = checkIFPart(ast.expression);
+          if (res !== null) {
+            return !res;
+          }
+        }
+        break;
+      case 'unary_defined':
+        if (ast.operator.literal === 'defined') {
+          const macroValue = checkMacros(ast.identifier.identifier);
+          if (macroValue !== null) {
+            return macroValue;
+          }
+        }
+        break;
+      case 'binary':
+        const leftResult = checkIFPart(ast.left);
+        const rightResult = checkIFPart(ast.right);
+
+        switch(ast.operator.literal) {
+          case '&&':
+            if (leftResult !== null && rightResult !== null) {
+              return leftResult && rightResult;
+            } else if (leftResult === false || rightResult === false) {
+              return false;
+            }
+            break;
+          case '||':
+            if (leftResult !== null && rightResult !== null) {
+              return leftResult || rightResult;
+            } else if (leftResult === true || rightResult === true) {
+              return true;
+            }
+            break;
+        }
+        break;
+      case 'group':
+        return checkIFPart(ast.expression);
+    }
+    return null;
+  };
+
+  visitPreprocessedAst(ast, {
+    conditional: {
+      enter: function(path) {
+        if (path.node.elseIfParts.length > 0) {
+          return;
+        }
+
+        const ifPart = path.node.ifPart;
+        const ifPartType = ifPart.type;
+        let ifPartResult:boolean|null = null;
+        if (ifPartType === 'ifdef' || ifPartType === 'ifndef') {
+          const identifier = ifPart.identifier.identifier;
+          const macroValue = checkMacros(identifier);
+          if (macroValue !== null) {
+            ifPartResult = ifPartType === 'ifdef' ? macroValue : !macroValue;
+          }
+        } else if (ifPartType === 'if') {
+          ifPartResult = checkIFPart(ifPart.expression);
+        }
+
+        if (ifPartResult !== null) {
+          const body = ifPartResult ? path.node.ifPart.body : path.node.elsePart?.body;
+          if (body) {
+            path.replaceWith(body as any);
+          } else {
+            path.remove();
+          }
+        }
+      }
+    }
+  });
+  
+  console.log(generate(ast));
 });
 
 /*
