@@ -491,7 +491,7 @@ export type NodePreservers = {
 };
 
 export type PreprocessorOptions = {
-  defines?: { [definitionName: string]: object };
+  defines?: { [definitionName: string]: Object };
   preserve?: NodePreservers;
   preserveComments?: boolean;
   stopOnError?: boolean;
