@@ -130,6 +130,37 @@ true
 `);
 });
 
+test('evaluates binary expression with simple macro', () => {
+  const program = `
+#define A 1
+#if A + 1 == 2
+true
+#endif
+`;
+
+  const ast = parse(program);
+  preprocessAst(ast);
+  expect(generate(ast)).toBe(`
+true
+`);
+});
+
+test('evaluates binary expression with nested macro', () => {
+  const program = `
+#define A 1
+#define B A + 1
+#if B == 2
+true
+#endif
+`;
+
+  const ast = parse(program);
+  preprocessAst(ast);
+  expect(generate(ast)).toBe(`
+true
+`);
+});
+
 test('define inside if/else is properly expanded when the if branch is chosen', () => {
   const program = `
 #define MACRO
