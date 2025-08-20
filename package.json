@@ -1,9 +1,9 @@
 {
-  "name": "@shaderfrog/glsl-parser",
+  "name": "@sar-engine/glsl-parser",
   "engines": {
     "node": ">=16"
   },
-  "version": "6.0.2",
+  "version": "1.0.0",
   "type": "module",
   "description": "A GLSL ES 1.0 and 3.0 parser and preprocessor that can preserve whitespace and comments",
   "scripts": {
@@ -23,7 +23,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ShaderFrog/glsl-parser.git"
+    "url": "git+https://code.byted.org/sar/glsl-parser.git"
   },
   "keywords": [
     "glsl",
@@ -33,9 +33,9 @@
   "author": "Andrew Ray",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/ShaderFrog/glsl-parser/issues"
+    "url": "https://code.byted.org/sar/glsl-parser/issues"
   },
-  "homepage": "https://github.com/ShaderFrog/glsl-parser#readme",
+  "homepage": "https://code.byted.org/sar/glsl-parser",
   "devDependencies": {
     "@babel/core": "^7.15.5",
     "@babel/preset-env": "^7.15.6",
