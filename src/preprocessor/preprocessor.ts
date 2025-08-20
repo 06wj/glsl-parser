@@ -336,7 +336,25 @@ const evaluteExpression = (node: PreprocessorAstNode, macros: Macros) =>
     // TODO: Handle non-base-10 numbers. Should these be parsed in the peg grammar?
     int_constant: (node) => parseInt(node.token, 10),
     unary_defined: (node) => node.identifier.identifier in macros,
-    identifier: (node) => node.identifier,
+    identifier: (node) => {
+      // If the identifier is a pure number (e.g. "123"), parse it as an integer.
+      if (/^\d+$/.test(node.identifier)) {
+        return parseInt(node.identifier, 10);
+      }
+
+      // If the identifier contains no letters (e.g. "1+2", "(1+2)*3"), try to evaluate it as a JS expression.
+      if (!/[a-zA-Z]/.test(node.identifier)) {
+        try {
+          return eval(node.identifier);
+        } catch (e) {
+          // If evaluation fails, fall through to error below.
+        }
+      }
+      // If it's not a number or evaluatable expression, throw an error (likely an unknown macro or invalid expression).
+      throw new Error(
+        `Preprocessing error: Unknown identifier or unsupported expression "${node.identifier}"`
+      );
+    },
     group: (node, visit) => visit(node.expression),
     binary: ({ left, right, operator: { literal } }, visit) => {
       switch (literal) {
