@@ -23,7 +23,7 @@ const parse = (src: string, options?: PreprocessorOptions) =>
   );
 
 const preprocess = (src: string, options?: PreprocessorOptions) =>
-  generate(preprocessAst(parse(src, options)));
+  generate(preprocessAst(parse(src, options), options));
 
 export default preprocess;
 
